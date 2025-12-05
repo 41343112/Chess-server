@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "main": "server.js",
   "dependencies": {
-    "ws": "^8.14.0"
-  },
-  "scripts": {
-    "start": "node server.js"
+    "ws": "^8.16.0"
   }
 }

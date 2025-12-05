@@ -32,8 +32,38 @@ wss.on('connection', ws => {
             if(rooms[roomId]){
                 rooms[roomId].push(ws);
                 ws.send(JSON.stringify({ action: "joinedRoom", room: roomId }));
+                
+                // 通知房主有玩家加入
+                const host = rooms[roomId][0];
+                if(host && host.readyState === WebSocket.OPEN){
+                    host.send(JSON.stringify({ action: "playerJoined", room: roomId }));
+                }
             } else {
                 ws.send(JSON.stringify({ action: "error", message: "房間不存在" }));
+            }
+        }
+
+        // 開始遊戲 - 伺服器廣播給房間內所有玩家以確保同步
+        else if(msg.action === "startGame"){
+            const roomId = msg.room;
+            if(rooms[roomId] && rooms[roomId].length === 2){
+                // 加上伺服器時間戳記以確保同步
+                const startMessage = {
+                    action: "gameStart",
+                    room: roomId,
+                    whiteTimeMs: msg.whiteTimeMs,
+                    blackTimeMs: msg.blackTimeMs,
+                    incrementMs: msg.incrementMs,
+                    hostColor: msg.hostColor,
+                    serverTimestamp: Date.now()
+                };
+                
+                // 廣播給房間內所有玩家
+                rooms[roomId].forEach(client => {
+                    if(client.readyState === WebSocket.OPEN){
+                        client.send(JSON.stringify(startMessage));
+                    }
+                });
             }
         }
 

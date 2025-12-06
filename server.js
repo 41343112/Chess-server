@@ -106,6 +106,7 @@ wss.on('connection', ws => {
                 // 檢查是否為第一步棋（計時器尚未啟動）
                 const isFirstMove = (timer.lastSwitchTime === null);
                 
+                // 計算經過的時間
                 let elapsedMs = 0;
                 if (!isFirstMove) {
                     // 不是第一步，計算經過的時間
@@ -114,27 +115,34 @@ wss.on('connection', ws => {
                 }
                 // 如果是第一步，elapsedMs 保持為 0，不扣除時間
                 
-                // 從當前玩家的時間中扣除經過的時間（轉換為毫秒）
-                if(timer.currentPlayer === "White"){
-                    const timeToDeduct = timer.whiteIsA ? timer.timeA : timer.timeB;
-                    const newTime = Math.max(0, timeToDeduct - elapsedMs);
+                // currentPlayer 表示當前輪到誰（正在思考的玩家）
+                // 當收到移動訊息時，表示 currentPlayer 剛走完棋
+                // 所以要從 currentPlayer 的時間中扣除 elapsed，然後切換到對手
+                
+                const playerWhoJustMoved = timer.currentPlayer;
+                
+                if(playerWhoJustMoved === "White"){
+                    // 白方剛走棋，從白方時間扣除
+                    const whiteTime = timer.whiteIsA ? timer.timeA : timer.timeB;
+                    const newWhiteTime = Math.max(0, whiteTime - elapsedMs) + timer.incrementMs;
                     
                     if(timer.whiteIsA){
-                        timer.timeA = newTime + timer.incrementMs;  // 添加增量時間
+                        timer.timeA = newWhiteTime;
                     } else {
-                        timer.timeB = newTime + timer.incrementMs;
+                        timer.timeB = newWhiteTime;
                     }
                     
                     // 切換到黑方
                     timer.currentPlayer = "Black";
                 } else {
-                    const timeToDeduct = timer.whiteIsA ? timer.timeB : timer.timeA;
-                    const newTime = Math.max(0, timeToDeduct - elapsedMs);
+                    // 黑方剛走棋，從黑方時間扣除
+                    const blackTime = timer.whiteIsA ? timer.timeB : timer.timeA;
+                    const newBlackTime = Math.max(0, blackTime - elapsedMs) + timer.incrementMs;
                     
                     if(timer.whiteIsA){
-                        timer.timeB = newTime + timer.incrementMs;
+                        timer.timeB = newBlackTime;
                     } else {
-                        timer.timeA = newTime + timer.incrementMs;
+                        timer.timeA = newBlackTime;
                     }
                     
                     // 切換到白方
@@ -142,7 +150,8 @@ wss.on('connection', ws => {
                 }
                 
                 // 更新最後切換時間（如果是第一步，這裡開始計時）
-                timer.lastSwitchTime = currentTime;
+                // 加上緩衝時間以補償網路延遲，確保客戶端收到訊息時不會扣錯時間
+                timer.lastSwitchTime = currentTime + 1;  // 加 1 秒緩衝
                 
                 // 廣播移動訊息和計時器狀態
                 const moveMessage = {
